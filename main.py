@@ -211,7 +211,9 @@ def process(file_text: str) -> str:
         # Append the formatted stdout
 
         markdown.append("\n")
+        markdown.append("\n")
         markdown.append(stdout)
+        markdown.append("\n")
         markdown.append(MARK_END)
 
         # Figure out where to jump the offset head

@@ -6,10 +6,12 @@ python-stdlib
 print(nix_eval("1+1"))
 print(nix_eval_flake("in flake.outputs.devShells.${system}.default"))
 -->
+
 ```nix
 2
 «derivation /nix/store/g034791zsl2k3pl12rmsvdb97l9ymkqm-nix-shell.drv»
 ```
+
 <!-- END -->
 
 Above here is the output of the command
@@ -26,11 +28,13 @@ result = (import ./users.nix) { inherit lib; };
 in
 builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
 -->
+
 ```nix
 alice
 bob
 root
 ```
+
 <!-- END -->
 
 Same output using nix stdlib "nix_eval_flake"
@@ -44,11 +48,13 @@ builtins.concatStringsSep "\n" (builtins.attrNames users.users.users)
 """
 print(nix_eval_flake(nix))
 -->
+
 ```nix
 alice
 bob
 root
 ```
+
 <!-- END -->
 
 ## Eval nix as a list
@@ -63,9 +69,11 @@ result = (import ./users.nix) { inherit lib; };
 in
 builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
 -->
+
 - alice
 - bob
 - root
+
 <!-- END -->
 
 Same output using nix stdlib "nix_eval_flake"
@@ -77,9 +85,11 @@ in builtins.concatStringsSep "\n" (builtins.attrNames (import ./users.nix { inhe
 """
 print(nix_eval_flake(nix))
 -->
+
 - alice
 - bob
 - root
+
 <!-- END -->
 
 ## Eval pkgs.hello (slow)
@@ -90,7 +100,9 @@ print(nix_eval_flake("in pkgs.hello.pname", pkgs=True))
 print(nix_eval_flake("in pkgs.hello.version", pkgs=True))
 print(nix_eval_flake("in pkgs.hello", pkgs=True))
 -->
+
 - hello
 - 2.12.3
 - «derivation /nix/store/cnraiw0hbdl6jzdhbkn8dah2hqj7xgij-hello-2.12.3.drv»
+
 <!-- END -->
