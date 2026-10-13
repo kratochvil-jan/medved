@@ -242,19 +242,19 @@ def main():
     parser.add_argument(
         "--replace",
         action="store_true",
-        help="Replace contents of the file",
+        help="Replace contents of the files",
     )
-    parser.add_argument("filename", type=Path)
+    parser.add_argument("filenames", nargs="+", type=Path, help="Input files")
 
     args = parser.parse_args()
 
-    filename: Path = args.filename
+    for filename in args.filenames:
+        assert isinstance(filename, Path)
 
-    processed = process_file(filename)
-
-    print(processed, end="")
-    if args.replace:
-        filename.write_text(processed)
+        processed = process_file(filename)
+        print(processed, end="")
+        if args.replace:
+            filename.write_text(processed)
 
 
 if __name__ == "__main__":
