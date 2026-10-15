@@ -8,10 +8,10 @@ from main import *
 
 
 # Helper to retrieve immediate match
-def search_comment(text: str) -> CommentRunnable:
+def search_comment(text: str) -> Runnable:
     match = RE_COMMENT.search(text)
     assert match
-    return CommentRunnable.from_match(match)
+    return Runnable.from_match(match)
 
 
 def test_re_comment_wrong():
@@ -171,7 +171,7 @@ def test_ensure_newline():
 
 
 def test_fmt():
-    runnable = CommentRunnable(
+    runnable = Runnable(
         CmdType.RUN, OutFmt.CODE, "python", "whatever", "whatever", "whatever"
     )
 
@@ -181,7 +181,7 @@ text out
 ```
 """ == fmt(runnable, "text out\n")
 
-    runnable = CommentRunnable(
+    runnable = Runnable(
         CmdType.RUN, OutFmt.LIST, "", "whatever", "whatever", "whatever"
     )
 
@@ -208,11 +208,11 @@ def test_fmt_list():
 
 def test_from_match():
     # Feed a valid Match but without the proper named groups
-    # -> parsing of CommentRunnable fails
+    # -> parsing of Runnable fails
     match = re.compile("\\w").search("word")
     assert match
     with pytest.raises(CommentRunnableParseException):
-        CommentRunnable.from_match(match)
+        Runnable.from_match(match)
 
 
 def test_strip_quotes():
@@ -222,7 +222,7 @@ def test_strip_quotes():
 
 
 def test_process_err():
-    with pytest.raises(CommentRunnableExecuteException):
+    with pytest.raises(RunnableSubprocessException):
         process(
             """\
 <!-- run code shell
@@ -231,6 +231,32 @@ exit 1
 -->
 """
         )
+
+
+def test_python_stdlib_nix_eval():
+    runnable = search_comment(
+        """\
+<!-- run code nix
+python-stdlib
+print(nix_eval("1+1"))
+-->
+"""
+    )
+
+    assert "2" == run_process(runnable)
+
+
+def test_python_stdlib_nix_eval_flake():
+    runnable = search_comment(
+        """\
+<!-- run code nix
+python-stdlib
+print(nix_eval_flake("in flake.outputs.devShells.${system}.default.name"))
+-->
+"""
+    )
+
+    assert "nix-shell" == run_process(runnable)
 
 
 def test_zz_process_file():  # zz to make sure it's the last test

@@ -5,8 +5,8 @@ import io
 import re
 import subprocess
 import sys
-from contextlib import redirect_stdout
-from dataclasses import asdict, dataclass, fields
+from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
 
@@ -39,14 +39,41 @@ class CommentRunnableParseException(Exception):
         super().__init__(self.message)
 
 
-class CommentRunnableExecuteException(Exception):
-    def __init__(self, runnable: CommentRunnable):
+class RunnableException(Exception):
+    def __init__(self, runnable: Runnable, reason: str, stderr: str):
         self.runnable = runnable
-        super().__init__(f"Failed tun run CommentRunnable: {asdict(runnable)}")
+        self.reason = reason
+        self.stderr = stderr
+
+    def __str__(self) -> str:
+        return f"""\
+{self.reason}
+Stderr: '{self.stderr}'
+Text of the failing comment:
+'''
+{self.runnable.comment_string}
+'''
+"""
+
+
+class RunnableExecException(RunnableException):
+    def __init__(self, runnable: Runnable, e: Exception, stderr: str):
+        super().__init__(runnable, f"Python exec raised exception '{e}'", stderr)
+
+
+class RunnableSubprocessException(RunnableException):
+    def __init__(
+        self, runnable: Runnable, e: subprocess.CalledProcessError, stderr: str
+    ):
+        super().__init__(
+            runnable,
+            f"Command '{runnable.process}' failed with exit code {e.returncode}",
+            stderr,
+        )
 
 
 @dataclass
-class CommentRunnable:
+class Runnable:
     cmd_type: CmdType
     out_fmt: OutFmt
     out_fmt_param: str
@@ -55,11 +82,11 @@ class CommentRunnable:
     comment_string: str
 
     @staticmethod
-    def from_match(match: re.Match) -> CommentRunnable:
+    def from_match(match: re.Match) -> Runnable:
         converted = match.groupdict()
 
         try:
-            for field in fields(CommentRunnable):
+            for field in fields(Runnable):
                 typ = field.type
                 value = converted.get(field.name)
 
@@ -67,10 +94,10 @@ class CommentRunnable:
                     converted[field.name] = typ(value)
 
             converted["comment_string"] = match.group(0)
-            return CommentRunnable(**converted)
+            return Runnable(**converted)
         except Exception as e:
             raise CommentRunnableParseException(
-                "Failed to parse CommentRunnable"
+                f"Failed to parse Runnable from string:\n'{match.group(0)}'"
             ) from e
 
 
@@ -78,14 +105,14 @@ def ensure_newline(text: str) -> str:
     return text.strip() + "\n"
 
 
-def fmt(runnable: CommentRunnable, stdout: str) -> str:
+def fmt(runnable: Runnable, stdout: str) -> str:
     match runnable.out_fmt:
         case OutFmt.CODE:
             return fmt_code(stdout, runnable.out_fmt_param)
         case OutFmt.LIST:
             return fmt_list(stdout)
         case _:
-            raise UnknownOutFmtException(f"Unknown run command: {runnable.out_fmt}")
+            raise UnknownOutFmtException(f"Unknown output format: {runnable.out_fmt}")
 
 
 def fmt_code(stdout: str, param: str) -> str:
@@ -108,11 +135,14 @@ class Stdlib:
     @staticmethod
     def _nix_eval(eval: str) -> str:
         process = f"nix eval --impure --expr '{eval}'"
-        return strip_quotes(
-            subprocess.check_output(process, text=True, shell=True)
-            .strip()
-            .replace("\\n", "\n")
+
+        result = subprocess.check_output(
+            process,
+            text=True,
+            shell=True,
+            stderr=subprocess.PIPE,
         )
+        return strip_quotes(result.strip()).replace("\\n", "\n")
 
     def nix_eval_flake(self, eval: str, pkgs=False, nixpkgs: str = "nixpkgs") -> str:
         expr_pkgs = (
@@ -145,25 +175,34 @@ let
         }
 
 
-def run_process(runnable: CommentRunnable) -> str:
-    try:
-        if runnable.process == "python-stdlib":
-            stdlib = Stdlib.as_dict()
+def run_process(runnable: Runnable) -> str | None:
+    if runnable.process == "python-stdlib":
+        stdlib = Stdlib.as_dict()
 
-            stdout = io.StringIO()
-            with redirect_stdout(stdout):
-                # ruff: ignore[S102]
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        try:
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                # ruff: ignore [S102]
                 exec(runnable.process_stdin, globals=stdlib)
+            return stdout.getvalue().strip()
+        except Exception as e:
+            raise RunnableExecException(runnable, e, stderr.getvalue().strip()) from e
 
-            ret = stdout.getvalue().strip()
-            return ret
-
-        return subprocess.check_output(
-            runnable.process, input=runnable.process_stdin, text=True, shell=True
+    try:
+        result = subprocess.run(
+            runnable.process,
+            input=runnable.process_stdin,
+            text=True,
+            shell=True,
+            capture_output=True,
+            check=True,
         )
-    # ruff: ignore[BLE001]
-    except Exception:
-        raise CommentRunnableExecuteException(runnable)
+        return result.stdout or ""
+    except subprocess.CalledProcessError as e:
+        raise RunnableSubprocessException(
+            runnable, e, e.stderr.strip() if e.stderr else ""
+        ) from e
 
 
 def process_file(file: Path) -> str:
@@ -195,7 +234,7 @@ def process(file_text: str) -> str:
 
         # Parse the matched comment regex
         try:
-            runnable = CommentRunnable.from_match(match)
+            runnable = Runnable.from_match(match)
         except CommentRunnableParseException:
             offset = match.end()
             continue
@@ -206,6 +245,7 @@ def process(file_text: str) -> str:
 
         # Run the process and format the stdout
         stdout = run_process(runnable)
+        assert stdout is not None
         stdout = fmt(runnable, stdout)
 
         # Append the formatted stdout
