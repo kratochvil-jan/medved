@@ -1,5 +1,21 @@
 # Medved
 
+## The idea
+
+Insert comments into markdown file with commands.
+Medved parses this and prints the stdout after the comment.
+```markdown
+<!-- run code shell
+echo hello
+-->
+```
+
+<!-- run code shell
+echo hello
+-->
+
+
+
 ## Run python code
 <!-- run code nix
 python-stdlib

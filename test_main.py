@@ -14,6 +14,11 @@ def search_comment(text: str) -> Runnable:
     return Runnable.from_match(match)
 
 
+def test_is_inside_code_block():
+    assert True == is_inside_code_block("```\n")
+    assert False == is_inside_code_block("```\ncontents\n```\nhello")
+
+
 def test_re_comment_wrong():
     assert None == RE_COMMENT.search("<!-- wrong format -->")
 
@@ -231,6 +236,45 @@ exit 1
 -->
 """
         )
+
+
+def test_process_ignored_code_block():
+    result = process(
+        """\
+```markdown
+<!-- run code shell
+this text is ignored because its in a code block
+-->
+```
+
+<!-- run code shell
+bash
+echo hello
+-->
+"""
+    )
+
+    assert (
+        """\
+```markdown
+<!-- run code shell
+this text is ignored because its in a code block
+-->
+```
+
+<!-- run code shell
+bash
+echo hello
+-->
+
+```shell
+hello
+```
+
+<!-- END -->
+"""
+        == result
+    )
 
 
 def test_python_stdlib_nix_eval():
