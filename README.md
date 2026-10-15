@@ -21,7 +21,7 @@ echo hello
 hello
 ```
 
-See <./example.md> for more
+See <./example.md> for raw markdown and <./example_golden.md> for post-processed examples
 
 <!-- END -->
 

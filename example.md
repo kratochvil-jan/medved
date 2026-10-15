@@ -11,13 +11,6 @@ print("hello")
 print("world")
 -->
 
-```text
-hello
-world
-```
-
-<!-- END -->
-
 ## Run bash commands, format output as list
 
 <!-- run list
@@ -25,11 +18,6 @@ bash
 echo line1
 echo line2
 -->
-
-- line1
-- line2
-
-<!-- END -->
 
 ## Stdlib with Nix
 
@@ -40,12 +28,6 @@ Passing `python-stdlib` as the command makes the code `eval()` with some functio
 python-stdlib
 print(nix_eval("1+1"))
 -->
-
-```text
-2
-```
-
-<!-- END -->
 
 ### nix_eval_flake
 
@@ -62,12 +44,6 @@ python-stdlib
 print(nix_eval_flake("in flake.outputs.devShells.${system}.default"))
 -->
 
-```text
-«derivation /nix/store/g034791zsl2k3pl12rmsvdb97l9ymkqm-nix-shell.drv»
-```
-
-<!-- END -->
-
 ### Eval on Nix file without flake, result is code block
 
 The command programs are passed as stdin, and Nix does not allow reading eval from stdin, so using `"$(cat)"` here
@@ -82,14 +58,6 @@ in
 builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
 -->
 
-```nix
-alice
-bob
-root
-```
-
-<!-- END -->
-
 
 ### Eval on Nix file with flake, result is code block
 
@@ -103,14 +71,6 @@ builtins.concatStringsSep "\n" (builtins.attrNames users.users.users)
 print(nix_eval_flake(nix))
 -->
 
-```nix
-alice
-bob
-root
-```
-
-<!-- END -->
-
 ### Eval on Nix file without flake, result is a list
 
 <!-- run list
@@ -122,12 +82,6 @@ in
 builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
 -->
 
-- alice
-- bob
-- root
-
-<!-- END -->
-
 ### Eval on Nix file with flake, result is a list
 
 <!-- run list
@@ -137,12 +91,6 @@ in builtins.concatStringsSep "\n" (builtins.attrNames (import ./users.nix { inhe
 """
 print(nix_eval_flake(nix))
 -->
-
-- alice
-- bob
-- root
-
-<!-- END -->
 
 ## Eval pkgs.hello (slow)
 
@@ -154,9 +102,3 @@ print(nix_eval_flake("in pkgs.hello.pname", pkgs=True))
 print(nix_eval_flake("in pkgs.hello.version", pkgs=True))
 print(nix_eval_flake("in pkgs.hello", pkgs=True))
 -->
-
-- hello
-- 2.12.3
-- «derivation /nix/store/cnraiw0hbdl6jzdhbkn8dah2hqj7xgij-hello-2.12.3.drv»
-
-<!-- END -->
