@@ -50,16 +50,21 @@ print(nix_eval("1+1"))
 ### nix_eval_flake
 
 Prepares a `nix eval` expression with available:
-- `flake`the `flake` loaded,
+- `flake` loaded from current directory
 - `system`
 - `lib`
 - `pkgs` if `nix_eval_flake(..., pkgs=True)`
 
-Expression should start with `in`. Allows the user to add more lines to the `let` part of Nix.
+Expression must contain `in`. Allows the user to add more lines to the `let-expression`.
 
 <!-- run code text
 python-stdlib
-print(nix_eval_flake("in flake.outputs.devShells.${system}.default"))
+nix = """\
+devshell = flake.outputs.devShells.${system}.default;
+in
+devshell
+"""
+print(nix_eval_flake(nix))
 -->
 
 ```text
@@ -68,10 +73,43 @@ print(nix_eval_flake("in flake.outputs.devShells.${system}.default"))
 
 <!-- END -->
 
-### Eval on Nix file without flake, result is code block
+### Eval on Nix file
+
+Examples to parse a nix file <./users.nix>.
+Contents of the file:
+<!-- run code nix
+bash
+cat ./users.nix
+-->
+
+```nix
+{ lib, ... }:
+
+let
+  users = {
+    bob = { };
+    alice = { };
+    root = { };
+  };
+in
+{
+  users.users = {
+    "root" = { };
+  }
+  // lib.mapAttrs
+    (
+      name: user:
+        user
+    )
+    users;
+}
+```
+
+<!-- END -->
+
+#### Without flake, result is code block
 
 The command programs are passed as stdin, and Nix does not allow reading eval from stdin, so using `"$(cat)"` here
-No flakes.
 
 <!-- run code nix
 nix eval --impure --raw --expr "$(cat)"
@@ -90,8 +128,24 @@ root
 
 <!-- END -->
 
+### Without flake, result is a list
 
-### Eval on Nix file with flake, result is code block
+<!-- run list
+nix eval --impure --raw --expr "$(cat)"
+let
+lib = import <nixpkgs/lib>;
+result = (import ./users.nix) { inherit lib; };
+in
+builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
+-->
+
+- alice
+- bob
+- root
+
+<!-- END -->
+
+#### With flake, result is code block
 
 <!-- run code nix
 python-stdlib
@@ -111,29 +165,14 @@ root
 
 <!-- END -->
 
-### Eval on Nix file without flake, result is a list
-
-<!-- run list
-nix eval --impure --raw --expr "$(cat)"
-let
-lib = import <nixpkgs/lib>;
-result = (import ./users.nix) { inherit lib; };
-in
-builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
--->
-
-- alice
-- bob
-- root
-
-<!-- END -->
-
-### Eval on Nix file with flake, result is a list
+### With flake, result is a list
 
 <!-- run list
 python-stdlib
 nix = """
-in builtins.concatStringsSep "\n" (builtins.attrNames (import ./users.nix { inherit lib; }).users.users)
+users = import ./users.nix { inherit lib; };
+in
+builtins.concatStringsSep "\n" (builtins.attrNames users.users.users)
 """
 print(nix_eval_flake(nix))
 -->
