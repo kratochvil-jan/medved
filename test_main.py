@@ -16,7 +16,9 @@ def search_comment(text: str) -> Runnable:
 
 def test_is_inside_code_block():
     assert True == is_inside_code_block("```\n")
+    assert True == is_inside_code_block("                 ```\n")
     assert False == is_inside_code_block("```\ncontents\n```\nhello")
+    assert False == is_inside_code_block("         ```\ncontents\n        ```\nhello")
 
 
 def test_re_comment_wrong():

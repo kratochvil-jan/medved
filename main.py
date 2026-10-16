@@ -10,7 +10,7 @@ from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
 
-RE_CODE_BLOCK = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})", re.MULTILINE)
+RE_CODE_BLOCK = re.compile(r"^[ \t]*(`{3,}|~{3,})", re.MULTILINE)
 RE_COMMENT = re.compile(
     r"<!-- (?P<cmd_type>\w+) (?P<out_fmt>\w+)( (?P<out_fmt_param>\w+))?\n(?P<process>.*?)\n(?P<process_stdin>.*?)-->",
     re.DOTALL,

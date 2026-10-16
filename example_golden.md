@@ -55,7 +55,7 @@ Prepares a `nix eval` expression with available:
 - `lib`
 - `pkgs` if `nix_eval_flake(..., pkgs=True)`
 
-Expression should shart with `in`. Allows the user to add more lines to the `let` part of Nix.
+Expression should start with `in`. Allows the user to add more lines to the `let` part of Nix.
 
 <!-- run code text
 python-stdlib

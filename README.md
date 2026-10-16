@@ -2,9 +2,11 @@
 
 ## The idea
 
-Insert comments into markdown file containing commands.
-Medved parses this and pastes the stdout after the comment.
+Dont let your markdown documentation become out of sync.
+Embed commands inside markdown comments, which can be executed via git-hooks or in CI.
+Medved finds these comments, parses the commands, executes it and pastes the stdout back into the markdown file.
 
+<!-- this code block is ignored by Medved -->
 ```markdown
 <!-- run code shell
 bash
@@ -12,6 +14,9 @@ echo hello
 -->
 ```
 
+This produces the following output:
+
+<!-- Medved evalates the comment below and pastes the output before the END marker -->
 <!-- run code shell
 bash
 echo hello
@@ -21,9 +26,9 @@ echo hello
 hello
 ```
 
-See <./example.md> for raw markdown and <./example_golden.md> for post-processed examples
-
 <!-- END -->
+
+See <./example.md> for raw markdown and <./example_golden.md> for post-processed examplesfor more
 
 The syntax is:
 ```markdown
