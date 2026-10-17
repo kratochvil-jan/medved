@@ -10,6 +10,7 @@ from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
 
+RE_CODE_BLOCK = re.compile(r"^[ \t]*(`{3,}|~{3,})", re.MULTILINE)
 RE_COMMENT = re.compile(
     r"<!-- (?P<cmd_type>\w+) (?P<out_fmt>\w+)( (?P<out_fmt_param>\w+))?\n(?P<process>.*?)\n(?P<process_stdin>.*?)-->",
     re.DOTALL,
@@ -209,6 +210,11 @@ def process_file(file: Path) -> str:
     return process(file.read_text())
 
 
+def is_inside_code_block(text: str) -> bool:
+    matches = RE_CODE_BLOCK.finditer(text, 0)
+    return len(list(matches)) % 2 == 1
+
+
 def process(file_text: str) -> str:
     """
     - Scan the file from top to bottom
@@ -231,6 +237,10 @@ def process(file_text: str) -> str:
 
         # Include everything in OG markdown until the match, including the match
         markdown.append(file_text[offset : match.end()])
+
+        if is_inside_code_block(file_text[: match.start()]):
+            offset = match.end()
+            continue
 
         # Parse the matched comment regex
         try:

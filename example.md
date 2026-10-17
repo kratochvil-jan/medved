@@ -1,17 +1,66 @@
 # Medved
 
-## Run python code
-<!-- run code nix
-python-stdlib
-print(nix_eval("1+1"))
-print(nix_eval_flake("in flake.outputs.devShells.${system}.default"))
+This file is parsed as part of the python tests.
+Reader should open this in raw mode to see the comments
+
+## Run python code, format output as code
+
+<!-- run code text
+python
+print("hello")
+print("world")
 -->
 
-Above here is the output of the command
+## Run bash commands, format output as list
 
-## Eval nix code
+<!-- run list
+bash
+echo line1
+echo line2
+-->
 
-This will produce a code block
+## Stdlib with Nix
+
+Passing `python-stdlib` as the command makes the code `eval()` with some functions to eval/parse nix available.
+
+### nix_eval
+<!-- run code text
+python-stdlib
+print(nix_eval("1+1"))
+-->
+
+### nix_eval_flake
+
+Prepares a `nix eval` expression with available:
+- `flake` loaded from current directory
+- `system`
+- `lib`
+- `pkgs` if `nix_eval_flake(..., pkgs=True)`
+
+Expression must contain `in`. Allows the user to add more lines to the `let-expression`.
+
+<!-- run code text
+python-stdlib
+nix = """\
+devshell = flake.outputs.devShells.${system}.default;
+in
+devshell
+"""
+print(nix_eval_flake(nix))
+-->
+
+### Eval on Nix file
+
+Examples to parse a nix file <./users.nix>.
+Contents of the file:
+<!-- run code nix
+bash
+cat ./users.nix
+-->
+
+#### Without flake, result is code block
+
+The command programs are passed as stdin, and Nix does not allow reading eval from stdin, so using `"$(cat)"` here
 
 <!-- run code nix
 nix eval --impure --raw --expr "$(cat)"
@@ -22,11 +71,18 @@ in
 builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
 -->
 
-This gets overwritten
+### Without flake, result is a list
 
-<!-- END -->
+<!-- run list
+nix eval --impure --raw --expr "$(cat)"
+let
+lib = import <nixpkgs/lib>;
+result = (import ./users.nix) { inherit lib; };
+in
+builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
+-->
 
-Same output using nix stdlib "nix_eval_flake"
+#### With flake, result is code block
 
 <!-- run code nix
 python-stdlib
@@ -38,30 +94,21 @@ builtins.concatStringsSep "\n" (builtins.attrNames users.users.users)
 print(nix_eval_flake(nix))
 -->
 
-## Eval nix as a list
-
-Produces bullet points
-
-<!-- run list
-nix eval --impure --raw --expr "$(cat)"
-let
-lib = import <nixpkgs/lib>;
-result = (import ./users.nix) { inherit lib; };
-in
-builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
--->
-
-Same output using nix stdlib "nix_eval_flake"
+### With flake, result is a list
 
 <!-- run list
 python-stdlib
 nix = """
-in builtins.concatStringsSep "\n" (builtins.attrNames (import ./users.nix { inherit lib; }).users.users)
+users = import ./users.nix { inherit lib; };
+in
+builtins.concatStringsSep "\n" (builtins.attrNames users.users.users)
 """
 print(nix_eval_flake(nix))
 -->
 
 ## Eval pkgs.hello (slow)
+
+Evaluating pkgs is always a bit slower
 
 <!-- run list
 python-stdlib
