@@ -31,6 +31,19 @@ echo line2
 
 <!-- END -->
 
+## Output format as plain text (no formatting)
+
+<!-- run text
+bash
+echo "- [ ] Open task"
+echo "- [x] Done"
+-->
+
+- [ ] Open task
+- [x] Done
+
+<!-- END -->
+
 ## Stdlib with Nix
 
 Passing `python-stdlib` as the command makes the code `eval()` with some functions to eval/parse nix available.

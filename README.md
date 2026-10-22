@@ -73,3 +73,21 @@ Produces
 - hello
 - world
 ```
+
+### Output format: Text
+
+No formatting applied. Stdout is pasted verbatim
+
+```
+<!-- run text
+bash
+echo "- hello"
+echo "world"
+-->
+```
+
+Produces
+```
+- hello
+world
+```
