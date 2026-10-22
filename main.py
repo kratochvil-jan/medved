@@ -26,6 +26,7 @@ class CmdType(Enum):
 class OutFmt(Enum):
     CODE = "code"
     LIST = "list"
+    TEXT = "text"
 
 
 class UnknownOutFmtException(Exception):
@@ -112,6 +113,8 @@ def fmt(runnable: Runnable, stdout: str) -> str:
             return fmt_code(stdout, runnable.out_fmt_param)
         case OutFmt.LIST:
             return fmt_list(stdout)
+        case OutFmt.TEXT:
+            return stdout
         case _:
             raise UnknownOutFmtException(f"Unknown output format: {runnable.out_fmt}")
 

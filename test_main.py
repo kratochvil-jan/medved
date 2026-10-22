@@ -75,6 +75,23 @@ process stdin
     assert "process stdin\n" == example.process_stdin
 
 
+def test_re_comment_text():
+    example = search_comment(
+        """\
+<!-- run text
+bash
+echo "- hello"
+-->
+"""
+    )
+
+    assert CmdType.RUN == example.cmd_type
+    assert OutFmt.TEXT == example.out_fmt
+    assert None == example.out_fmt_param
+    assert "bash" == example.process
+    assert 'echo "- hello"\n' == example.process_stdin
+
+
 def test_re_comment_with_end():
     example = search_comment(
         """\
@@ -195,6 +212,16 @@ text out
     assert """\
 - line1
 - line2
+""" == fmt(runnable, "line1\nline2\n")
+
+    # No formatting applied
+    runnable = Runnable(
+        CmdType.RUN, OutFmt.TEXT, "", "whatever", "whatever", "whatever"
+    )
+
+    assert """\
+line1
+line2
 """ == fmt(runnable, "line1\nline2\n")
 
 
