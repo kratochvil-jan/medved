@@ -114,7 +114,7 @@ def fmt(runnable: Runnable, stdout: str) -> str:
         case OutFmt.LIST:
             return fmt_list(stdout)
         case OutFmt.TEXT:
-            return stdout
+            return ensure_newline(stdout)
         case _:
             raise UnknownOutFmtException(f"Unknown output format: {runnable.out_fmt}")
 
