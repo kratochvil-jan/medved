@@ -10,6 +10,16 @@ from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
 
+MEDVED = "🧸"
+MEDVED_BAR = MEDVED * 10
+
+RED = "\033[31m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+CYAN = "\033[36m"
+BOLD = "\033[1m"
+RESET = "\033[0m"
+
 RE_CODE_BLOCK = re.compile(r"^[ \t]*(`{3,}|~{3,})", re.MULTILINE)
 RE_COMMENT = re.compile(
     r"<!-- (?P<cmd_type>\w+) (?P<out_fmt>\w+)( (?P<out_fmt_param>\w+))?\n(?P<process>.*?)\n(?P<process_stdin>.*?)-->",
@@ -42,35 +52,60 @@ class CommentRunnableParseException(Exception):
 
 
 class RunnableException(Exception):
-    def __init__(self, runnable: Runnable, reason: str, stderr: str):
+    def __init__(
+        self,
+        runnable: Runnable,
+        reason: str,
+        error_parts: list[tuple[str, str]],
+    ):
         self.runnable = runnable
         self.reason = reason
-        self.stderr = stderr
+        self.error_parts = error_parts
 
     def __str__(self) -> str:
-        return f"""\
-{self.reason}
-Stderr: '{self.stderr}'
-Text of the failing comment:
-'''
-{self.runnable.comment_string}
-'''
-"""
+        def fmt(text: str) -> str:
+            return f"{YELLOW}{text}{RESET}"
+
+        parts = (
+            [("reason:", self.reason)]
+            + self.error_parts
+            + [("medved comment:", self.runnable.comment_string)]
+        )
+
+        format_parts = [
+            fmt(key) + "\n" + value.strip() + "\n" for (key, value) in parts
+        ]
+        # opt_parts = [f"{fmt(key)}\n{value}" for key, value in self.parts.items()]
+        parts = [
+            "",
+            f"{RED}{BOLD}{MEDVED_BAR}{RESET}",
+            f"  {RED}{BOLD}MEDVED FAILED{RESET}",
+            f"{RED}{BOLD}{MEDVED_BAR}{RESET}",
+        ] + format_parts
+
+        return "\n".join(parts)
 
 
 class RunnableExecException(RunnableException):
-    def __init__(self, runnable: Runnable, e: Exception, stderr: str):
-        super().__init__(runnable, f"Python exec raised exception '{e}'", stderr)
+    def __init__(self, runnable: Runnable, e: Exception, command: str, stderr: str):
+        parts = [("command:", command), ("stderr:", stderr.strip())]
+        super().__init__(runnable, "Python exec raised exception", parts)
 
 
 class RunnableSubprocessException(RunnableException):
     def __init__(
-        self, runnable: Runnable, e: subprocess.CalledProcessError, stderr: str
+        self,
+        runnable: Runnable,
+        e: subprocess.CalledProcessError,
+        command: str,
+        stdin: str,
+        stderr: str,
     ):
+        parts = [("command", command), ("stdin", stdin), ("stderr", stderr)]
         super().__init__(
             runnable,
-            f"Command '{runnable.process}' failed with exit code {e.returncode}",
-            stderr,
+            f"Command failed with exit code {e.returncode}",
+            parts,
         )
 
 
@@ -140,13 +175,25 @@ class Stdlib:
         return f"nix eval --impure --expr '{eval}'"
 
     def _run(self, process: str) -> str:
-        result = subprocess.check_output(
+        result = subprocess.run(
             process,
             text=True,
             shell=True,
-            stderr=subprocess.PIPE,
+            check=False,
+            capture_output=True,
         )
-        return strip_quotes(result.strip()).replace("\\n", "\n")
+
+        print(result.stderr, file=sys.stderr, end="")
+
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                result.returncode,
+                process,
+                output=result.stdout,
+                stderr=result.stderr,
+            )
+
+        return strip_quotes(result.stdout.strip()).replace("\\n", "\n")
 
     def nix_eval_flake(self, flake_output: str, eval: str) -> str:
         process = f"""\
@@ -215,8 +262,10 @@ def run_process(runnable: Runnable) -> str | None:
                 # ruff: ignore [S102]
                 exec(runnable.process_stdin, globals=stdlib)
             return stdout.getvalue().strip()
-        except Exception as e:
-            raise RunnableExecException(runnable, e, stderr.getvalue().strip()) from e
+        except subprocess.CalledProcessError as e:
+            raise RunnableExecException(
+                runnable, e, e.cmd, stderr.getvalue().strip()
+            ) from None
 
     try:
         result = subprocess.run(
@@ -228,10 +277,15 @@ def run_process(runnable: Runnable) -> str | None:
             check=True,
         )
         return result.stdout or ""
+
     except subprocess.CalledProcessError as e:
         raise RunnableSubprocessException(
-            runnable, e, e.stderr.strip() if e.stderr else ""
-        ) from e
+            runnable,
+            e,
+            e.cmd,
+            runnable.process_stdin,
+            e.stderr.strip() if e.stderr else "",
+        ) from None
 
 
 def process_file(file: Path) -> str:
@@ -331,7 +385,11 @@ def main():
     for filename in args.filenames:
         assert isinstance(filename, Path)
 
-        processed = process_file(filename)
+        try:
+            processed = process_file(filename)
+        except RunnableException as e:
+            print(e, file=sys.stderr)
+            sys.exit(1)
         print(processed, end="")
         if args.replace:
             filename.write_text(processed)
