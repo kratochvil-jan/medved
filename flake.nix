@@ -35,5 +35,22 @@
           };
         }
       );
+
+      legacyPackages = forAllSystems
+        (
+          system:
+          let pkgs = nixpkgs.legacyPackages.${system};
+          in pkgs
+        );
+
+      nixosConfigurations.example-system = nixpkgs.lib.nixosSystem {
+        specialArgs = { };
+        system = "x86_64-linux";
+        modules = [
+          {
+            networking.hostName = "example-hostname";
+          }
+        ];
+      };
     };
 }
