@@ -73,9 +73,8 @@ class RunnableException(Exception):
         )
 
         format_parts = [
-            fmt(key) + "\n" + value.strip() + "\n" for (key, value) in parts
+            "\n".join((fmt(key), value.strip(), "")) for key, value in parts
         ]
-        # opt_parts = [f"{fmt(key)}\n{value}" for key, value in self.parts.items()]
         parts = [
             "",
             f"{RED}{BOLD}{MEDVED_BAR}{RESET}",
