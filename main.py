@@ -136,10 +136,10 @@ def strip_quotes(text: str) -> str:
 
 
 class Stdlib:
-    @staticmethod
-    def _nix_eval(eval: str) -> str:
-        process = f"nix eval --impure --expr '{eval}'"
+    def _wrap_eval(self, eval: str) -> str:
+        return f"nix eval --impure --expr '{eval}'"
 
+    def _run(self, process: str) -> str:
         result = subprocess.check_output(
             process,
             text=True,
@@ -148,7 +148,26 @@ class Stdlib:
         )
         return strip_quotes(result.strip()).replace("\\n", "\n")
 
-    def nix_eval_flake(self, eval: str, pkgs=False, nixpkgs: str = "nixpkgs") -> str:
+    def nix_eval_flake(self, flake_output: str, eval: str) -> str:
+        process = f"""\
+nix eval --raw '{flake_output}' --apply '
+flakeOutput:
+    let
+        inherit (flakeOutput) pkgs;
+        inherit (pkgs) lib;
+    {eval}
+'
+"""
+
+        return self._run(process)
+
+    def nix_eval_flake_slow(
+        self, eval: str, pkgs=False, nixpkgs: str = "nixpkgs"
+    ) -> str:
+        """
+        This imports the flake in `--impure`, so it's very slow
+        """
+
         expr_pkgs = (
             f"pkgs = import flake.inputs.{nixpkgs} {{ inherit system; }};"
             if pkgs and nixpkgs
@@ -162,10 +181,16 @@ let
     {expr_pkgs}
     {eval}
 """
-        return Stdlib._nix_eval(expr)
+        return self._run(self._wrap_eval(expr))
 
     def nix_eval(self, expr: str) -> str:
-        return Stdlib._nix_eval(expr)
+        process = f"""\
+let
+    pkgs = import <nixpkgs>{{}};
+    lib = pkgs.lib;
+    {expr}
+"""
+        return self._run(self._wrap_eval(process))
 
     @staticmethod
     def as_dict():

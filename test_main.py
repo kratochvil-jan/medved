@@ -311,7 +311,7 @@ def test_python_stdlib_nix_eval():
         """\
 <!-- run code nix
 python-stdlib
-print(nix_eval("1+1"))
+print(nix_eval("in 1+1"))
 -->
 """
     )
@@ -319,12 +319,49 @@ print(nix_eval("1+1"))
     assert "2" == run_process(runnable)
 
 
-def test_python_stdlib_nix_eval_flake():
+def test_python_stdlib_nix_eval_flake_on_nixos():
+    """
+    Eval a nixos system property declared in the flake and print the system's hostname
+    """
     runnable = search_comment(
         """\
 <!-- run code nix
 python-stdlib
-print(nix_eval_flake("in flake.outputs.devShells.${system}.default.name"))
+print(nix_eval_flake(".#nixosConfigurations.example-system", "in flakeOutput.config.networking.hostName"))
+-->
+"""
+    )
+
+    assert "example-hostname" == run_process(runnable)
+
+
+def test_python_stdlib_nix_eval_flake_on_devshell():
+    """
+    Eval flake's devshell and print the default name
+    """
+
+    runnable = search_comment(
+        """\
+<!-- run code nix
+python-stdlib
+print(nix_eval_flake(".#devShells.x86_64-linux", "in flakeOutput.default.name"))
+-->
+"""
+    )
+
+    assert "nix-shell" == run_process(runnable)
+
+
+def test_python_stdlib_nix_eval_flake_slow():
+    """
+    The SLOW nix_eval_flake variant (using --impure)
+    """
+
+    runnable = search_comment(
+        """\
+<!-- run code nix
+python-stdlib
+print(nix_eval_flake_slow("in flake.outputs.devShells.${system}.default.name"))
 -->
 """
     )

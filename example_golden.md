@@ -3,7 +3,9 @@
 This file is parsed as part of the python tests.
 Reader should open this in raw mode to see the comments
 
-## Run python code, format output as code
+## Output modes
+
+### Run python code, format output as code
 
 <!-- run code text
 python
@@ -18,7 +20,7 @@ world
 
 <!-- END -->
 
-## Run bash commands, format output as list
+### Run bash commands, format output as list
 
 <!-- run list
 bash
@@ -31,7 +33,7 @@ echo line2
 
 <!-- END -->
 
-## Output format as plain text (no formatting)
+### Output format as plain text (no auto formatting)
 
 <!-- run text
 bash
@@ -46,12 +48,25 @@ echo "- [x] Done"
 
 ## Stdlib with Nix
 
+Medved has built-in support for parsing Nix.
+
 Passing `python-stdlib` as the command makes the code `eval()` with some functions to eval/parse nix available.
 
 ### nix_eval
+
+The expression is "prepared" with the following available:
+
+- `pkgs` - from `<nixpkgs>`
+- `lib`
+Comes with `pkgs` and `lib` available.
+
+Runs with `--impure` to alllow importing of other `nix` files relative to the local directory.
+
+Note that `--impure` is slow.
+
 <!-- run code text
 python-stdlib
-print(nix_eval("1+1"))
+print(nix_eval("in 1+1"))
 -->
 
 ```text
@@ -62,31 +77,53 @@ print(nix_eval("1+1"))
 
 ### nix_eval_flake
 
-Prepares a `nix eval` expression with available:
-- `flake` loaded from current directory
-- `system`
-- `lib`
-- `pkgs` if `nix_eval_flake(..., pkgs=True)`
+Evaluate a nix flake output.
 
-Expression must contain `in`. Allows the user to add more lines to the `let-expression`.
+Expects:
+
+- `flake_output` - name of the flake output
+  - must begin with `.#`
+- `expr` - expression to apply over that output
+  - must contain the `in` keyword. Allows the user to declare more variables in the `let` expression.
+
+The expression is "prepared" with the following available:
+
+- `pkgs` - default pkgs
+- `lib`
+
+**This is not `--impure`, so it's much faster and preferred for flake evaluation**
+
+Examples:
 
 <!-- run code text
 python-stdlib
-nix = """\
-devshell = flake.outputs.devShells.${system}.default;
-in
-devshell
-"""
-print(nix_eval_flake(nix))
+print(
+  nix_eval_flake(".#devShells.x86_64-linux", "in flakeOutput.default.name")
+)
 -->
 
 ```text
-«derivation /nix/store/g034791zsl2k3pl12rmsvdb97l9ymkqm-nix-shell.drv»
+nix-shell
 ```
 
 <!-- END -->
 
-### Eval on Nix file
+<!-- run code text
+python-stdlib
+print(
+  nix_eval_flake(".#nixosConfigurations.example-system", "in flakeOutput.config.networking.hostName")
+)
+-->
+
+```text
+example-hostname
+```
+
+<!-- END -->
+
+### Stdlib examples
+
+#### `nix_eval`
 
 Examples to parse a nix file <./users.nix>.
 Contents of the file:
@@ -120,36 +157,33 @@ in
 
 <!-- END -->
 
-#### Without flake, result is code block
+Eval a basic `nix` expression
 
-The command programs are passed as stdin, and Nix does not allow reading eval from stdin, so using `"$(cat)"` here
-
-<!-- run code nix
-nix eval --impure --raw --expr "$(cat)"
-let
-lib = import <nixpkgs/lib>;
-result = (import ./users.nix) { inherit lib; };
-in
-builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
+<!-- run code
+python-stdlib
+print(
+  nix_eval("in 1+1")
+)
 -->
 
-```nix
-alice
-bob
-root
+```None
+2
 ```
 
 <!-- END -->
 
-### Without flake, result is a list
+Import a nix file and transform the result
 
 <!-- run list
-nix eval --impure --raw --expr "$(cat)"
-let
-lib = import <nixpkgs/lib>;
-result = (import ./users.nix) { inherit lib; };
+python-stdlib
+expr = """\
+  imported-users = (import ./users.nix) { inherit lib; };
 in
-builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
+  builtins.concatStringsSep "\n" (builtins.attrNames imported-users.users.users)
+"""
+print(
+  nix_eval(expr)
+)
 -->
 
 - alice
@@ -158,57 +192,39 @@ builtins.concatStringsSep "\n" (builtins.attrNames result.users.users)
 
 <!-- END -->
 
-#### With flake, result is code block
+#### `nix_eval_flake`
 
-<!-- run code nix
-python-stdlib
-nix = """
-users = import ./users.nix { inherit lib; };
-in
-builtins.concatStringsSep "\n" (builtins.attrNames users.users.users)
-"""
-print(nix_eval_flake(nix))
--->
-
-```nix
-alice
-bob
-root
-```
-
-<!-- END -->
-
-### With flake, result is a list
+Evaluate multiple times
 
 <!-- run list
 python-stdlib
-nix = """
-users = import ./users.nix { inherit lib; };
-in
-builtins.concatStringsSep "\n" (builtins.attrNames users.users.users)
-"""
-print(nix_eval_flake(nix))
--->
-
-- alice
-- bob
-- root
-
-<!-- END -->
-
-## Eval pkgs.hello (slow)
-
-Evaluating pkgs is always a bit slower
-
-<!-- run list
-python-stdlib
-print(nix_eval_flake("in pkgs.hello.pname", pkgs=True))
-print(nix_eval_flake("in pkgs.hello.version", pkgs=True))
-print(nix_eval_flake("in pkgs.hello", pkgs=True))
+print(nix_eval_flake(".#legacyPackages.x86_64-linux", "in flakeOutput.hello.pname"))
+print(nix_eval_flake(".#legacyPackages.x86_64-linux", "in flakeOutput.hello.version"))
+print(nix_eval_flake(".#legacyPackages.x86_64-linux", "in flakeOutput.hello"))
 -->
 
 - hello
 - 2.12.3
-- «derivation /nix/store/cnraiw0hbdl6jzdhbkn8dah2hqj7xgij-hello-2.12.3.drv»
+- /nix/store/5z2yp3ysx8476c8g5w25b0smlgkjvaq3-hello-2.12.3
+
+<!-- END -->
+
+Or combine in one nix expression for faster evaluation
+
+<!-- run list
+python-stdlib
+expr = """\
+  package = flakeOutput.hello;
+in
+  builtins.concatStringsSep "\n" [ package.pname package.version package ]
+"""
+print(
+  nix_eval_flake(".#legacyPackages.x86_64-linux", expr)
+)
+-->
+
+- hello
+- 2.12.3
+- /nix/store/5z2yp3ysx8476c8g5w25b0smlgkjvaq3-hello-2.12.3
 
 <!-- END -->
