@@ -10,6 +10,8 @@ from dataclasses import dataclass, fields
 from enum import Enum
 from pathlib import Path
 
+MEDVED = "🧸🧸🧸"
+
 RE_CODE_BLOCK = re.compile(r"^[ \t]*(`{3,}|~{3,})", re.MULTILINE)
 RE_COMMENT = re.compile(
     r"<!-- (?P<cmd_type>\w+) (?P<out_fmt>\w+)( (?P<out_fmt_param>\w+))?\n(?P<process>.*?)\n(?P<process_stdin>.*?)-->",
@@ -48,14 +50,15 @@ class RunnableException(Exception):
         self.stderr = stderr
 
     def __str__(self) -> str:
-        return f"""\
-{self.reason}
-Stderr: '{self.stderr}'
-Text of the failing comment:
-'''
-{self.runnable.comment_string}
-'''
-"""
+        parts = [
+            self.reason,
+            f"Comment:\n{MEDVED}\n{self.runnable.comment_string}\n{MEDVED}",
+        ]
+
+        if self.stderr.strip():
+            parts.append(f"Stderr:\n{MEDVED}\n{self.stderr.strip()}\n{MEDVED}")
+
+        return "\n\n".join(parts)
 
 
 class RunnableExecException(RunnableException):
@@ -69,7 +72,9 @@ class RunnableSubprocessException(RunnableException):
     ):
         super().__init__(
             runnable,
-            f"Command '{runnable.process}' failed with exit code {e.returncode}",
+            f"""Command '
+{runnable.process}
+' failed with exit code {e.returncode}""",
             stderr,
         )
 
@@ -140,13 +145,24 @@ class Stdlib:
         return f"nix eval --impure --expr '{eval}'"
 
     def _run(self, process: str) -> str:
-        result = subprocess.check_output(
+        result = subprocess.run(
             process,
             text=True,
             shell=True,
-            stderr=subprocess.PIPE,
+            capture_output=True,
         )
-        return strip_quotes(result.strip()).replace("\\n", "\n")
+
+        print(result.stderr, file=sys.stderr, end="")
+
+        if result.returncode != 0:
+            raise subprocess.CalledProcessError(
+                result.returncode,
+                process,
+                output=result.stdout,
+                stderr=result.stderr,
+            )
+
+        return strip_quotes(result.stdout).replace("\\n", "\n")
 
     def nix_eval_flake(self, flake_output: str, eval: str) -> str:
         process = f"""\
@@ -216,7 +232,9 @@ def run_process(runnable: Runnable) -> str | None:
                 exec(runnable.process_stdin, globals=stdlib)
             return stdout.getvalue().strip()
         except Exception as e:
-            raise RunnableExecException(runnable, e, stderr.getvalue().strip()) from e
+            raise RunnableExecException(
+                runnable, e, stderr.getvalue().strip()
+            ) from None
 
     try:
         result = subprocess.run(
