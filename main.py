@@ -72,15 +72,12 @@ class RunnableException(Exception):
             + [("medved comment:", self.runnable.comment_string)]
         )
 
-        format_parts = [
-            "\n".join((fmt(key), value.strip(), "")) for key, value in parts
-        ]
         parts = [
             "",
             f"{RED}{BOLD}{MEDVED_BAR}{RESET}",
             f"  {RED}{BOLD}MEDVED FAILED{RESET}",
             f"{RED}{BOLD}{MEDVED_BAR}{RESET}",
-        ] + format_parts
+        ] + ["\n".join((fmt(key), value.strip(), "")) for key, value in parts]
 
         return "\n".join(parts)
 
